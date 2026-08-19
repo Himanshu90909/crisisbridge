@@ -12,6 +12,7 @@ from analytics import (
     load_data,
 )
 from live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
+from disaster_agent import classify_disaster_question, render_disaster_report, supported_prompt
 
 st.set_page_config(
     page_title="CrisisBridge | Emergency Response Intelligence",
@@ -137,11 +138,12 @@ with world_tabs[3]:
     if ask:
         st.session_state.world_chat.append({"role": "user", "content": ask})
         q = ask.lower()
+        intent = classify_disaster_question(ask)
         death_requested = any(word in q for word in ["die", "died", "death", "deaths", "fatalit", "casualt"])
         live_eq_count = "not available"
         live_eq_peak = "not available"
         live_eq_place = "not available"
-        if any(word in q for word in ["earthquake", "seismic"]):
+        if intent.domain == "earthquake":
             try:
                 live_eq = fetch_earthquakes(days=7, minimum_magnitude=4.5)
                 live_eq_count = len(live_eq)
@@ -163,12 +165,35 @@ with world_tabs[3]:
             answer = "### Global problem scan\n\n**Connected evidence:** Live coverage currently includes earthquake activity and location-level weather context, plus the operational emergency-request dataset.\n\n**Affected people and deaths:** These figures are not globally available from one connected source. The agent will show **Not reported** rather than inventing numbers, and will distinguish affected population from confirmed deaths.\n\n**Domains in the expansion plan:** climate, disasters, public health, conflict, food and agriculture, water, energy, economy, markets, supply chain, internet infrastructure, cities, and science. Each domain needs its own verified adapter, timestamp, geography, and uncertainty model.\n\n**Recommended next step:** Ask for one domain, region, and time period—for example, *What conflict fatalities were reported in region X during month Y?*—so the agent can return a source-bounded answer."
         elif "assam" in q and any(word in q for word in ["flood", "flooding", "baadh", "water", "inundat"]):
             answer = "### Assam flood status\n\n**Short answer: Haan — the latest accessible report says active flooding was reported in Assam.**\n\n**Latest reported situation:** The cited report described flooding across **10 districts, 28 revenue circles, and 456 villages**, with **137,590 people affected** and **11,933.46 hectares of crops submerged**. It named Golaghat, Sivasagar, Hojai, Darrang, Lakhimpur, Jorhat, Karbi Anglong, Charaideo, Nagaon, and Biswanath.\n\n**Deaths:** The same report gave a reported total of **100 deaths**, but this figure is **as of 10 August 2026**, not a guaranteed real-time total.\n\n**Weather risk:** An India Meteorological Department bulletin issued on **19 August 2026** forecast widespread rainfall over Assam and Meghalaya during 19–22 August and 25 August, with isolated heavy rainfall possible during 19–25 August. This supports continuing rain risk but does not by itself confirm new inundation or deaths.\n\n**Evidence status:** Reported flood situation plus official weather forecast; freshness is limited because the impact report is not a live ASDMA/DRIMS feed.\n\n**Sources:** [NDTV Assam flood report](https://www.ndtv.com/india-news/assam-flood-death-count-rises-to-100-over-1-3-lakh-people-affected-11888931) · [India Meteorological Department bulletin](https://internal.imd.gov.in/section/nhac/dynamic/allindianew.pdf) · [ASDMA official portal](https://asdma.assam.gov.in/)\n\n**Recommended next step:** For a truly current answer, connect the ASDMA/DRIMS flood bulletin directly and display its retrieval time. For safety decisions, follow ASDMA, district administration, IMD, and local emergency instructions."
-        elif any(word in q for word in ["climate", "weather", "heat", "rain", "flood"]):
-            answer = "### Climate and weather context\n\nSearch a country, city, district, block, or village in the Global Intelligence section. CrisisBridge uses OpenStreetMap Nominatim to locate the place and Open-Meteo to retrieve current weather context.\n\n**Affected people:** Not reported by the weather endpoint.\n\n**Deaths/casualties:** Not reported by the connected weather endpoint; never infer casualties from temperature, rainfall, or wind alone.\n\n**Important limitation:** Current weather context is not the same as a climate trend, flood forecast, drought assessment, or official warning.\n\n**Sources:** [Open-Meteo](https://open-meteo.com/en/docs) · [OpenStreetMap Nominatim](https://nominatim.org/release-docs/latest/api/Search/)\n\n**Recommended next step:** Search the location, compare conditions with official local warnings, and use a humanitarian or disaster-impact source for affected-population and casualty figures."
+        elif intent.domain == "flood":
+            answer = render_disaster_report(
+                ask,
+                intent,
+                status="No location-specific live flood impact record is attached yet",
+                affected_people=None,
+                deaths=None,
+                resources=["water, food, medicine, shelter, rescue, and communications"],
+                source_links=[("ASDMA", "https://asdma.assam.gov.in/"), ("GDACS", "https://gdacs.org/"), ("ReliefWeb", "https://reliefweb.int/")],
+                evidence_status="Disaster domain recognized; connect the current official bulletin before treating the report as live",
+                confidence="Low without a named location and current impact bulletin",
+                limitations="Weather forecasts do not prove inundation, and no casualty figure is shown unless an impact source explicitly reports it.",
+            )
+        elif any(word in q for word in ["climate", "weather", "heat", "rain"]):
+            answer = "### Climate and weather context\n\nSearch a country, city, district, block, or village in the Global Intelligence section. CrisisBridge uses OpenStreetMap Nominatim to retrieve the place and Open-Meteo to retrieve current weather context.\n\n**Affected people:** Not reported by the weather endpoint.\n\n**Deaths/casualties:** Not reported by the connected weather endpoint; never infer casualties from temperature, rainfall, or wind alone.\n\n**Important limitation:** Current weather context is not the same as a climate trend, flood forecast, drought assessment, or official warning.\n\n**Sources:** [Open-Meteo](https://open-meteo.com/en/docs) · [OpenStreetMap Nominatim](https://nominatim.org/release-docs/latest/api/Search/)\n\n**Recommended next step:** Search the location, compare conditions with official local warnings, and use a humanitarian or disaster-impact source for affected-population and casualty figures."
         elif any(word in q for word in ["how", "what can you", "capability", "source", "data"]):
             answer = "### World Agent capabilities\n\nThe agent can recognize questions across disasters, climate, health, conflict, food, water, energy, economy, markets, supply chain, internet, cities, science, and emergency resources.\n\nFor each domain, a production answer should return: **problem type, location, event time, current status, affected population, deaths, injuries, missing people, source, timestamp, confidence, limitations, and recommended verification**. Unknown values appear as **Not reported by the connected source**, never as zero.\n\nThe current prototype has live adapters for earthquakes, geocoding, and weather context. Other domains are recognized but marked as awaiting verified adapters."
+        elif intent.domain != "general":
+            answer = render_disaster_report(
+                ask,
+                intent,
+                status="Recognized, but a current domain-specific impact record is not attached",
+                source_links=[("GDACS", "https://gdacs.org/"), ("ReliefWeb", "https://reliefweb.int/")],
+                evidence_status="Domain recognized; source adapter required for live impact figures",
+                confidence="Low until a current source record is attached",
+                limitations="The agent will not invent affected people, deaths, injuries, or responders. Add a location and time range for a source-bounded answer.",
+            )
         else:
-            answer = "### Ask about any world problem\n\nInclude a **problem**, **place**, and **time period**. Examples: *How many people died in the latest earthquake?* *What health outbreaks are reported in Africa this month?* *What conflict casualties are reported in region X?* *Which areas face food or water stress?*\n\nThe agent will return source status, affected population, deaths if explicitly reported, uncertainty, and a recommended verification step. It will say **Not reported** when no connected authority provides a figure."
+            answer = "### Ask about any world problem\n\nInclude a **problem**, **place**, and **time period**. Examples: *How many people died in the latest earthquake?* *What health outbreaks are reported in Africa this month?* *What conflict casualties are reported in region X?* *Which areas face food or water stress?*\n\n" + supported_prompt() + "\n\nThe agent will return source status, affected population, deaths if explicitly reported, uncertainty, and a recommended verification step. It will say **Not reported** when no connected authority provides a figure."
         st.session_state.world_chat.append({"role": "assistant", "content": answer})
         st.rerun()
 
