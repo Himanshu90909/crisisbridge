@@ -1,0 +1,5 @@
+hospital_id,name,zone,beds_available,icu_available,medical_stock_level,status
+H-01,Sion Municipal Hospital,Central,18,4,Low,Operational
+H-02,Rajawadi Hospital,East,32,7,Medium,Operational
+H-03,Cooper Hospital,West,24,5,High,Operational
+H-04,JJ Hospital,South,41,10,Medium,Operational

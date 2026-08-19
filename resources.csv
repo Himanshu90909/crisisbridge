@@ -1,0 +1,7 @@
+resource_id,resource_type,warehouse,available_units,unit
+R-01,Water,Central Depot,260,1000L tanks
+R-02,Food,Central Depot,180,food packages
+R-03,Medical,East Medical Hub,72,medical kits
+R-04,Shelter,North Logistics Hub,120,tents
+R-05,Rescue,West Equipment Hub,14,rescue teams
+R-06,Transport,South Fleet Yard,9,vehicles

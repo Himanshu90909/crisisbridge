@@ -1,0 +1,7 @@
+shelter_id,name,zone,status,capacity,occupied,latitude,longitude
+S-01,North Relief Center,North,Open,700,612,19.0720,72.8780
+S-02,Kurla Community Hall,East,Open,300,288,19.0735,72.8840
+S-03,Dharavi School Shelter,Central,At Capacity,350,350,19.0395,72.8525
+S-04,Chembur Sports Complex,East,Open,600,410,19.0630,72.8975
+S-05,Malad Municipal Ground,West,Open,500,276,19.1870,72.8480
+S-06,Byculla Relief Center,South,Open,250,132,18.9790,72.8290

@@ -1,0 +1,16 @@
+request_id,location,zone,need_type,people_affected,requested_units,priority,status,reported_at,latitude,longitude
+REQ-1001,Shivaji Nagar,North,Water,420,42,Critical,Verified,2026-08-19 07:20,19.0728,72.8781
+REQ-1002,Kurla West,East,Medical,85,18,Critical,Assigned,2026-08-19 07:35,19.0726,72.8845
+REQ-1003,Dharavi,Central,Food,310,31,High,Verified,2026-08-19 06:55,19.0390,72.8530
+REQ-1004,Chembur Camp,East,Shelter,160,40,High,Unverified,2026-08-19 08:10,19.0626,72.8970
+REQ-1005,Sion Koliwada,Central,Rescue,44,3,Critical,Assigned,2026-08-19 08:25,19.0465,72.8640
+REQ-1006,Malad Creek,West,Water,225,23,High,Verified,2026-08-19 05:45,19.1874,72.8484
+REQ-1007,Mankhurd,East,Food,180,18,High,Unverified,2026-08-19 07:50,19.0488,72.9317
+REQ-1008,Jogeshwari East,West,Medical,62,12,Medium,Verified,2026-08-19 05:15,19.1370,72.8580
+REQ-1009,Wadala,Central,Transport,96,4,Medium,Assigned,2026-08-19 04:40,19.0178,72.8582
+REQ-1010,Govandi,East,Water,260,26,Critical,Verified,2026-08-19 06:30,19.0551,72.9142
+REQ-1011,Andheri Subway,West,Rescue,28,2,High,Unverified,2026-08-19 08:00,19.1197,72.8468
+REQ-1012,Byculla,South,Food,120,12,Medium,Completed,2026-08-18 23:10,18.9788,72.8295
+REQ-1013,Colaba,South,Medical,35,6,Low,Completed,2026-08-18 21:45,18.9067,72.8147
+REQ-1014,Chunabhatti,Central,Shelter,190,48,High,Verified,2026-08-19 07:05,19.0510,72.8732
+REQ-1015,Versova,West,Water,140,14,Medium,Unverified,2026-08-19 07:40,19.1300,72.8150
