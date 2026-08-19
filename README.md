@@ -1,59 +1,94 @@
-# CrisisBridge
+# CrisisBridge Sentinel
 
-## Emergency Response Intelligence for Resource Allocation
+```text
+╭──────────────────────────────────────────────────────────────╮
+│ CRISISBRIDGE SENTINEL                                        │
+│ Global disaster intelligence + emergency resource command   │
+│ Status: Streamlit prototype · Evidence-aware · AI-ready     │
+╰──────────────────────────────────────────────────────────────╯
+```
 
-CrisisBridge is a Streamlit decision-support prototype for coordinating shelters, hospitals, emergency supplies, volunteers, and citizen requests during floods, earthquakes, fires, cyclones, and other disasters.
+> **Make every emergency resource count.**
 
-> **Mission:** make every emergency resource count by helping response teams understand which requests are most urgent and where limited supplies should go first.
+CrisisBridge Sentinel is a B.Tech Streamlit and AI capstone project for understanding disasters, locating affected places, reviewing source-backed impact information, and coordinating emergency resources. It combines Pandas data pipelines, Plotly visualizations, free public data sources, reusable disaster-domain routing, optional Gemini multimodal analysis, and an explicit safety policy for casualty figures.
 
-## The problem
+## Live demo and repository
 
-Disaster response teams often work with fragmented reports from shelters, hospitals, volunteers, local authorities, and citizens. Without a shared operational view, one location may receive excess supplies while another location faces a critical shortage. CrisisBridge creates a single, visual triage workspace for prioritizing requests and recommending dispatches.
-
-This repository uses **synthetic demonstration data**. It is not connected to a live emergency service and must not be used to direct real-world response operations without professional verification.
-
-## What the application demonstrates
-
-| Capability | Implementation |
+| Resource | Link |
 |---|---|
-| Interactive data application | Streamlit layout, sidebar filters, metrics, tables, downloads |
-| Data engineering | CSV ingestion, datetime parsing, filtering, grouped summaries |
-| Geographic intelligence | Interactive Mapbox/OpenStreetMap request map with priority colors |
-| Decision support | Weighted request-priority scoring and dispatch recommendations |
-| Data visualization | Plotly map, bar chart, operational KPI cards |
-| Machine-learning-ready design | Clear extension point for shortage forecasting and risk prediction |
-| Product thinking | Defined users, workflow, safety disclaimer, and measurable operational outputs |
-| Engineering practice | Modular utilities, reproducible dependencies, synthetic fixtures, and documented roadmap |
+| Live app | [Open CrisisBridge](https://8501-ifi6u98evac6sbkax8ox3-4da1dcc5.sg1.manus.computer) |
+| GitHub | [Himanshu90909/crisisbridge](https://github.com/Himanshu90909/crisisbridge) |
+| Entry point | `app.py` |
 
-## Core workflow
+The current live link is a temporary demonstration runtime. For a permanent release, deploy the repository on Streamlit Community Cloud, Render, or Hugging Face Spaces.
 
-1. Load requests, shelters, hospitals, and resource inventory.
-2. Filter the operational picture by status, need type, and response zone.
-3. Calculate a transparent priority score using population impact, urgency, need type, and verification status.
-4. Review the highest-priority requests on the map and in the triage queue.
-5. Compare unmet needs with available inventory.
-6. Review recommended dispatches and download the triage queue for coordination.
+## Product experience
 
-## Project structure
+The visitor can move through **Global Pulse**, **Problem Radar**, **World Graph**, **Ask the World**, and **AI Evidence Lab**. The command center includes KPI cards with deltas, priority maps, triage tables, resource recommendations, download controls, and an editable triage snapshot.
+
+The World Agent accepts questions such as:
+
+```text
+Bhai batao ki Assam mein baadh aayi hai ya nahi?
+What happened in the latest earthquake?
+Which villages are affected by this flood?
+How many deaths were reported, and what is the source date?
+Who is responding and which resources are needed?
+```
+
+The answer engine separates live observations, forecasts, reported impacts, unknowns, confidence, limitations, sources, and recommended verification. It never turns missing casualty data into zero.
+
+## Capstone rubric coverage
+
+| Category | Evidence in this repository |
+|---|---|
+| Technical implementation | Modular Python files, Pandas DataFrames, `st.session_state`, `st.form`, safe fallbacks, compile validation |
+| AI and prompts | `gemini_engine.py`, tailored system prompt, dynamic context, optional camera and audio evidence |
+| UI and visualization | Tabs, columns, `st.metric` deltas, expanders, Plotly charts, maps, Sankey graph, `st.data_editor`, CSV downloads |
+| Deployment | Streamlit entrypoint and cloud-safe `requirements.txt` with no system packages |
+| Open-source branding | Terminal-style README, setup commands, project mission, live link, limitations |
+| System design | [`docs/architecture.md`](docs/architecture.md), [`docs/technical_design.md`](docs/technical_design.md), source-policy documents |
+
+See [`CAPSTONE_RUBRIC.md`](CAPSTONE_RUBRIC.md) for the full evaluation mapping and demo script.
+
+## Architecture
+
+```text
+Streamlit UI
+   ├── Global Pulse / Radar / Graph
+   ├── Ask the World chat + session history
+   └── AI Evidence Lab form + camera + audio
+          │
+          ├── Live source adapters: USGS, Open-Meteo, Nominatim
+          ├── Disaster intent router + structured report engine
+          ├── Optional Gemini text / vision / audio analysis
+          └── Evidence, freshness, confidence, and casualty safeguards
+```
+
+Open the full Mermaid diagram at [`docs/architecture.md`](docs/architecture.md) and the data-flow specification at [`docs/technical_design.md`](docs/technical_design.md).
+
+## Repository layout
 
 ```text
 crisisbridge/
-├── app.py
-├── requirements.txt
-├── README.md
-├── data/
-│   ├── emergency_requests.csv
-│   ├── hospitals.csv
-│   ├── resources.csv
-│   └── shelters.csv
-└── utils/
-    └── analytics.py
+├── app.py                    # Streamlit UI and workflows
+├── analytics.py              # Pandas loading, scoring, filtering, dispatch logic
+├── disaster_agent.py         # Domain router and long-form disaster reports
+├── gemini_engine.py          # Optional Gemini prompt and multimodal adapter
+├── live_sources.py           # Free public data adapters
+├── data/                     # Synthetic demonstration operational data
+├── docs/                     # Architecture and technical design
+├── CAPSTONE_RUBRIC.md        # Rubric mapping and demo script
+├── global_data_sources.md    # Source strategy and coverage notes
+├── world_agent_sources.md    # World Agent evidence policy
+├── assam_flood_sources.md    # Assam flood evidence and freshness notes
+└── requirements.txt          # Cloud dependency manifest
 ```
 
-## Run locally
+## Local setup
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/Himanshu90909/crisisbridge.git
 cd crisisbridge
 python -m venv .venv
 source .venv/bin/activate
@@ -61,29 +96,28 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Open the local URL printed by Streamlit, normally `http://localhost:8501`.
+The application works without a Gemini key through a deterministic, source-bounded fallback. To enable Gemini, create a local `.streamlit/secrets.toml` file:
 
-## Example outputs
+```toml
+GEMINI_API_KEY = "your-key-here"
+```
 
-The dashboard provides an emergency command view with the following operational outputs:
+Never commit that file. On Streamlit Community Cloud, add the same secret in the application settings.
 
-- people affected by the selected request set;
-- open and critical requests;
-- open shelter count;
-- interactive request-priority map;
-- needs ranked by affected population;
-- sortable triage queue;
-- recommended dispatch quantity and source warehouse; and
-- downloadable CSV triage report.
+## Responsible AI and data policy
 
-## Roadmap
+CrisisBridge is a decision-support prototype, not an autonomous emergency-dispatch system. The operational CSV files contain synthetic demonstration data and must not be used to direct real-world response. USGS, Open-Meteo, and Nominatim provide live or public context, but no single feed describes every crisis on Earth.
 
-The next production-oriented iterations would add role-based access, PostgreSQL storage, audited status changes, verified geospatial feeds, multilingual request intake, SMS notifications, duplicate-request detection, route optimization, and a time-series model that forecasts shelter shortages over the next 24–48 hours.
+The system reports deaths, injuries, missing people, and affected populations only when a connected source explicitly provides them. If the value is missing, the response says **Not reported by the connected source**. Users must verify urgent information through local authorities, disaster-management agencies, hospitals, and official warnings.
 
-## Safety and responsible use
+## Development commands
 
-CrisisBridge is a prototype for research, education, and portfolio demonstration. Emergency decisions must be made by trained authorities using verified field intelligence. The priority score is transparent but simplified; it must not be treated as an automated determination of whose life is more valuable.
+```bash
+python validate_capstone.py
+python -m compileall -q app.py disaster_agent.py gemini_engine.py
+streamlit run app.py
+```
 
-## License
+## License and attribution
 
-This project is released under the MIT License. Add a `LICENSE` file before public distribution if you want to formalize the licensing terms.
+This repository is an educational capstone prototype. Review the terms and attribution requirements of every upstream data provider before production deployment. The project should be extended with authenticated organization registration, scheduled ingestion, PostGIS, moderation, multilingual support, domain-specific casualty feeds, and persistent cloud hosting before real operational use.

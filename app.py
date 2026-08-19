@@ -13,6 +13,7 @@ from analytics import (
 )
 from live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
 from disaster_agent import classify_disaster_question, render_disaster_report, supported_prompt
+from gemini_engine import ask_gemini, gemini_available
 
 st.set_page_config(
     page_title="CrisisBridge | Emergency Response Intelligence",
@@ -85,7 +86,7 @@ st.markdown(
 )
 
 # ---------- World Intelligence OS prototype ----------
-world_tabs = st.tabs(["Global Pulse", "Problem Radar", "World Graph", "Ask the World"])
+world_tabs = st.tabs(["Global Pulse", "Problem Radar", "World Graph", "Ask the World", "AI Evidence Lab"])
 with world_tabs[0]:
     st.markdown("**What is happening in the world right now?**")
     pulse_items = [
@@ -197,14 +198,58 @@ with world_tabs[3]:
         st.session_state.world_chat.append({"role": "assistant", "content": answer})
         st.rerun()
 
+with world_tabs[4]:
+    st.markdown("**AI Evidence Lab — Gemini-powered multimodal review**")
+    st.caption("Use the form to submit a question with optional camera or audio evidence. Gemini is optional; the source-backed fallback remains available without a key.")
+    if "ai_history" not in st.session_state:
+        st.session_state.ai_history = []
+    with st.form("ai_evidence_form", clear_on_submit=False):
+        ai_question = st.text_area("Question", placeholder="Example: Is this area showing flood damage, and what should responders verify?", height=90)
+        image_evidence = st.camera_input("Camera evidence (optional)")
+        audio_widget = getattr(st, "audio_input", None)
+        audio_evidence = audio_widget("Voice report (optional)") if audio_widget else None
+        submitted = st.form_submit_button("Analyze evidence", type="primary")
+    if submitted and ai_question.strip():
+        context = {
+            "source_status": "USGS/Open-Meteo live adapters plus CrisisBridge prototype request data",
+            "filtered_request_count": open_requests,
+            "critical_request_count": critical,
+            "people_impacted": people_impacted,
+            "data_warning": "Synthetic operations data; verify all real-world decisions with authorities.",
+        }
+        result = ask_gemini(
+            ai_question.strip(),
+            context,
+            image_bytes=image_evidence.getvalue() if image_evidence else None,
+            audio_bytes=audio_evidence.getvalue() if audio_evidence else None,
+        )
+        if result is None:
+            result = render_disaster_report(
+                ai_question.strip(),
+                classify_disaster_question(ai_question),
+                status="Gemini key not configured; returned safe source-bounded fallback",
+                affected_people=people_impacted,
+                resources=["water", "food", "medicine", "shelter", "rescue"],
+                evidence_status="Local deterministic fallback; no external AI call",
+                confidence="Medium for dashboard counts; low for unconnected world facts",
+                limitations="Configure GEMINI_API_KEY in Streamlit secrets to enable Gemini reasoning and multimodal review.",
+            )
+        st.session_state.ai_history.append({"question": ai_question.strip(), "answer": result})
+    for item in reversed(st.session_state.ai_history):
+        with st.expander(f"Question: {item['question']}", expanded=True):
+            st.markdown(item["answer"])
+    st.info("Gemini status: " + ("configured" if gemini_available() else "optional key not configured; deterministic fallback active"))
+    st.markdown("**Editable triage snapshot**")
+    st.data_editor(filtered.head(12), use_container_width=True, hide_index=True, disabled=["request_id", "priority_score"], key="triage_editor")
+
 if critical:
     st.markdown(f'<div class="alert"><strong>Immediate attention:</strong> {critical} critical request(s) require triage. Review the highest-priority locations below.</div>', unsafe_allow_html=True)
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("People in filtered requests", f"{people_impacted:,}")
-c2.metric("Open requests", f"{open_requests:,}")
-c3.metric("Critical requests", f"{critical:,}")
-c4.metric("Open shelters", f"{active_shelters:,}")
+c1.metric("People in filtered requests", f"{people_impacted:,}", delta="filtered live view")
+c2.metric("Open requests", f"{open_requests:,}", delta=f"{critical} critical")
+c3.metric("Critical requests", f"{critical:,}", delta="priority queue", delta_color="inverse")
+c4.metric("Open shelters", f"{active_shelters:,}", delta="operational")
 
 st.markdown('<div class="section-title">Global intelligence layer</div>', unsafe_allow_html=True)
 intel_a, intel_b = st.columns([1.2, 1])
