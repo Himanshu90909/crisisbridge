@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 from analytics import (
@@ -81,6 +82,64 @@ st.markdown(
     '<div class="hero"><h1>Make every emergency resource count.</h1><p>A decision-support dashboard for coordinating shelters, hospitals, supplies, volunteers, and urgent citizen requests during a disaster.</p></div>',
     unsafe_allow_html=True,
 )
+
+# ---------- World Intelligence OS prototype ----------
+world_tabs = st.tabs(["Global Pulse", "Problem Radar", "World Graph", "Ask the World"])
+with world_tabs[0]:
+    st.markdown("**What is happening in the world right now?**")
+    pulse_items = [
+        {"Domain": "Hazards", "Signal": "Live earthquake activity", "Coverage": "Global", "Status": "Live · USGS", "Action": "Open the live hazard map"},
+        {"Domain": "Climate", "Signal": "Location weather context", "Coverage": "Country → village search", "Status": "Live · Open-Meteo", "Action": "Search any location below"},
+        {"Domain": "Humanitarian", "Signal": "Situation reports", "Coverage": "Global", "Status": "Connector resilient", "Action": "Review source-linked updates"},
+        {"Domain": "Response", "Signal": "Emergency requests and resources", "Coverage": "Operational zones", "Status": "Prototype workspace", "Action": "Triage and dispatch"},
+    ]
+    st.dataframe(pd.DataFrame(pulse_items), use_container_width=True, hide_index=True)
+    st.caption("Pulse items show source status honestly: live, connector-resilient, or prototype. This avoids presenting fabricated global intelligence as fact.")
+
+with world_tabs[1]:
+    st.markdown("**Problem Radar — transparent prioritization of signals**")
+    radar = pd.DataFrame([
+        {"Problem": "Emergency resource shortage", "Impact": 92, "Urgency": 95, "Growth": "↑↑", "Evidence": "CrisisBridge triage data", "Mode": "Prototype"},
+        {"Problem": "Earthquake activity", "Impact": 86, "Urgency": 88, "Growth": "Live", "Evidence": "USGS earthquake feed", "Mode": "Live"},
+        {"Problem": "Location-level weather exposure", "Impact": 82, "Urgency": 80, "Growth": "Live", "Evidence": "Open-Meteo context", "Mode": "Live"},
+        {"Problem": "Humanitarian information fragmentation", "Impact": 79, "Urgency": 84, "Growth": "↑", "Evidence": "Source integration layer", "Mode": "Architecture"},
+        {"Problem": "Food, energy, markets, and health signals", "Impact": 70, "Urgency": 65, "Growth": "Planned", "Evidence": "Future API adapters", "Mode": "Roadmap"},
+    ])
+    radar["Radar score"] = (radar["Impact"] * 0.45 + radar["Urgency"] * 0.55).round().astype(int)
+    st.dataframe(radar.sort_values("Radar score", ascending=False), use_container_width=True, hide_index=True, column_config={"Radar score": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%d")})
+    selected_problem = st.selectbox("Explore a problem", radar["Problem"].tolist())
+    selected_row = radar[radar["Problem"] == selected_problem].iloc[0]
+    st.info(f"**{selected_problem}** — impact {selected_row['Impact']}/100, urgency {selected_row['Urgency']}/100, evidence mode: {selected_row['Mode']}. Next: connect a verified domain-specific feed before forecasting or recommending action.")
+
+with world_tabs[2]:
+    st.markdown("**AI World Graph — connect signals into explainable chains**")
+    st.caption("This graph is an explainable prototype. Production relationships should be backed by dated datasets and confidence scores.")
+    labels = ["India", "Low rainfall", "Crop production", "Food prices", "Inflation", "Consumer spending", "Business impact"]
+    sources = [0, 1, 2, 3, 4, 5]
+    targets = [1, 2, 3, 4, 5, 6]
+    values = [8, 7, 6, 5, 4, 3]
+    fig_graph = go.Figure(go.Sankey(node=dict(label=labels, color=["#102a43", "#0f766e", "#0f766e", "#ea580c", "#ea580c", "#d97706", "#b91c1c"]), link=dict(source=sources, target=targets, value=values, color="rgba(15,118,110,.35)")))
+    fig_graph.update_layout(height=360, margin=dict(l=0, r=0, t=12, b=0))
+    st.plotly_chart(fig_graph, use_container_width=True)
+    st.caption("World Graph roadmap: add causal evidence, time windows, geographic scope, source links, and uncertainty to every edge.")
+
+with world_tabs[3]:
+    st.markdown("**Ask the World**")
+    ask = st.text_input("Ask a global intelligence question", placeholder="Where are the most urgent emerging problems?")
+    example_questions = "Examples: biggest emerging problems in Asia · where are current earthquake signals · which resources need attention?"
+    st.caption(example_questions)
+    if ask:
+        q = ask.lower()
+        if "earthquake" in q:
+            answer = "The current live hazard layer is the USGS earthquake feed. Open Global Intelligence below to inspect worldwide events, magnitude, place, time, and depth with source attribution."
+        elif "resource" in q or "shortage" in q:
+            answer = f"The current operational view contains {critical} critical request(s), {open_requests} open request(s), and {people_impacted:,} affected people in the selected filters. Review Triage and Recommended dispatches."
+        elif "asia" in q or "emerging" in q or "problem" in q:
+            answer = "The prototype currently detects strongest evidence in hazards, emergency shortages, and location-level weather context. Economy, health, agriculture, energy, supply chain, internet, and science adapters are staged as the next World Intelligence OS modules."
+        else:
+            answer = "I can currently answer from the live hazard layer, location/weather lookup, humanitarian connector status, and operational request data. Ask about earthquakes, resources, shortages, Asia, or emerging problems."
+        st.success(answer)
+        st.caption("AI-agent upgrade path: retrieve source records, cite each claim, compare time windows, and refuse unsupported forecasts.")
 
 if critical:
     st.markdown(f'<div class="alert"><strong>Immediate attention:</strong> {critical} critical request(s) require triage. Review the highest-priority locations below.</div>', unsafe_allow_html=True)
