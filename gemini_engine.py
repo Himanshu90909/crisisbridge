@@ -23,12 +23,12 @@ orders and do not replace local emergency authorities.
 """
 
 
-def _api_key() -> str | None:
-    return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+def _api_key(override: str | None = None) -> str | None:
+    return override or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 
-def gemini_available() -> bool:
-    return bool(_api_key())
+def gemini_available(override: str | None = None) -> bool:
+    return bool(_api_key(override))
 
 
 def ask_gemini(
@@ -37,9 +37,10 @@ def ask_gemini(
     *,
     image_bytes: bytes | None = None,
     audio_bytes: bytes | None = None,
+    api_key: str | None = None,
 ) -> str | None:
     """Call Gemini when configured; otherwise return None for safe fallback."""
-    key = _api_key()
+    key = _api_key(api_key)
     if not key:
         return None
     try:

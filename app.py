@@ -200,12 +200,21 @@ with world_tabs[3]:
 
 with world_tabs[4]:
     st.markdown("**AI Evidence Lab — Gemini-powered multimodal review**")
-    st.caption("Use the form to submit a question with optional camera or audio evidence. Gemini is optional; the source-backed fallback remains available without a key.")
+    st.caption("Use a session-only Gemini key or hosting secrets. Choose the camera purpose before capturing evidence. Do not record private, identifying, or unsafe material without consent.")
     if "ai_history" not in st.session_state:
         st.session_state.ai_history = []
+    if "gemini_session_key" not in st.session_state:
+        st.session_state.gemini_session_key = ""
+    with st.expander("Gemini API configuration", expanded=not gemini_available()):
+        ui_key = st.text_input("Gemini API key (session only)", type="password", value=st.session_state.gemini_session_key, help="The key is kept only in this Streamlit session. For deployment, prefer Streamlit Secrets instead of typing it here.")
+        remember_key = st.checkbox("Use this key for the current session", value=False)
+        if remember_key:
+            st.session_state.gemini_session_key = ui_key.strip()
+        st.caption("For Streamlit Cloud, configure GEMINI_API_KEY in App settings → Secrets. The deterministic fallback works without a key.")
     with st.form("ai_evidence_form", clear_on_submit=False):
         ai_question = st.text_area("Question", placeholder="Example: Is this area showing flood damage, and what should responders verify?", height=90)
-        image_evidence = st.camera_input("Camera evidence (optional)")
+        camera_mode = st.selectbox("Camera purpose", ["Front camera — reporter/selfie context", "Rear camera — field scene or damage context"], help="The browser may show its own camera selector. This label tells Gemini how to interpret the captured evidence.")
+        image_evidence = st.camera_input("Capture camera evidence (optional)", help="Use the front camera for reporter context or the rear camera for a field scene. Obtain consent before recording people.")
         audio_widget = getattr(st, "audio_input", None)
         audio_evidence = audio_widget("Voice report (optional)") if audio_widget else None
         submitted = st.form_submit_button("Analyze evidence", type="primary")
@@ -216,12 +225,14 @@ with world_tabs[4]:
             "critical_request_count": critical,
             "people_impacted": people_impacted,
             "data_warning": "Synthetic operations data; verify all real-world decisions with authorities.",
+            "camera_purpose": camera_mode,
         }
         result = ask_gemini(
             ai_question.strip(),
             context,
             image_bytes=image_evidence.getvalue() if image_evidence else None,
             audio_bytes=audio_evidence.getvalue() if audio_evidence else None,
+            api_key=st.session_state.gemini_session_key or ui_key.strip() or None,
         )
         if result is None:
             result = render_disaster_report(
@@ -238,7 +249,8 @@ with world_tabs[4]:
     for item in reversed(st.session_state.ai_history):
         with st.expander(f"Question: {item['question']}", expanded=True):
             st.markdown(item["answer"])
-    st.info("Gemini status: " + ("configured" if gemini_available() else "optional key not configured; deterministic fallback active"))
+    active_key = st.session_state.gemini_session_key or ui_key.strip()
+    st.info("Gemini status: " + ("configured" if gemini_available(active_key) else "optional key not configured; deterministic fallback active"))
     st.markdown("**Editable triage snapshot**")
     st.data_editor(filtered.head(12), use_container_width=True, hide_index=True, disabled=["request_id", "priority_score"], key="triage_editor")
 
