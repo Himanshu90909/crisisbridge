@@ -125,21 +125,30 @@ with world_tabs[2]:
 
 with world_tabs[3]:
     st.markdown("**Ask the World**")
-    ask = st.text_input("Ask a global intelligence question", placeholder="Where are the most urgent emerging problems?")
-    example_questions = "Examples: biggest emerging problems in Asia · where are current earthquake signals · which resources need attention?"
-    st.caption(example_questions)
+    st.write("Type a question about a world issue. The current prototype responds from the live hazard layer, operational data, and clearly labeled roadmap knowledge.")
+    if "world_chat" not in st.session_state:
+        st.session_state.world_chat = []
+    for message in st.session_state.world_chat:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    st.caption("Try: **Where are the current earthquake signals?** · **What resources need attention?** · **What are the biggest emerging problems in Asia?**")
+    ask = st.chat_input("Ask about earthquakes, climate, resources, shortages, Asia, or emerging problems", key="world_chat_input")
     if ask:
+        st.session_state.world_chat.append({"role": "user", "content": ask})
         q = ask.lower()
         if "earthquake" in q:
-            answer = "The current live hazard layer is the USGS earthquake feed. Open Global Intelligence below to inspect worldwide events, magnitude, place, time, and depth with source attribution."
-        elif "resource" in q or "shortage" in q:
-            answer = f"The current operational view contains {critical} critical request(s), {open_requests} open request(s), and {people_impacted:,} affected people in the selected filters. Review Triage and Recommended dispatches."
-        elif "asia" in q or "emerging" in q or "problem" in q:
-            answer = "The prototype currently detects strongest evidence in hazards, emergency shortages, and location-level weather context. Economy, health, agriculture, energy, supply chain, internet, and science adapters are staged as the next World Intelligence OS modules."
+            answer = "### Earthquake signals\n\nThe live hazard layer uses the **USGS Earthquake Catalog**. Open the Global Intelligence section below to inspect worldwide events with magnitude, location, time, depth, and source attribution. The feed is observational; it is not a prediction of future earthquakes.\n\n**Evidence:** live USGS feed."
+        elif any(word in q for word in ["resource", "shortage", "food", "water", "medicine", "supply"]):
+            answer = f"### Resource situation\n\nIn the current operational view, **{critical} critical request(s)** and **{open_requests} open request(s)** affect **{people_impacted:,} people** under the selected filters. Use the triage queue and Recommended dispatches to see priority locations and suggested quantities.\n\n**Evidence:** CrisisBridge prototype request and inventory data."
+        elif any(word in q for word in ["asia", "emerging", "global problem", "world issue", "biggest problem"]):
+            answer = "### Emerging world issues\n\nThe strongest evidence currently available in this prototype covers **hazards, emergency shortages, and location-level weather context**. The next verified adapters are climate hazards, health, agriculture, economy, energy, supply chain, internet infrastructure, cities, and science.\n\nI will not invent a ranking for a domain that is not yet connected. **Evidence status:** live for USGS/Open-Meteo; prototype or roadmap for the other domains."
+        elif any(word in q for word in ["climate", "weather", "heat", "rain", "flood"]):
+            answer = "### Climate and weather\n\nSearch a country, city, district, block, or village in the Global Intelligence section. CrisisBridge will geocode the place with OpenStreetMap Nominatim and retrieve current weather context from Open-Meteo. This is context, not an official warning service."
         else:
-            answer = "I can currently answer from the live hazard layer, location/weather lookup, humanitarian connector status, and operational request data. Ask about earthquakes, resources, shortages, Asia, or emerging problems."
-        st.success(answer)
-        st.caption("AI-agent upgrade path: retrieve source records, cite each claim, compare time windows, and refuse unsupported forecasts.")
+            answer = "### What I can answer now\n\nAsk me about **earthquake signals, climate or weather context, resources, shortages, Asia, or emerging world problems**. For every answer, CrisisBridge labels whether the evidence is live, prototype, architecture-stage, or roadmap-stage."
+        st.session_state.world_chat.append({"role": "assistant", "content": answer})
+        st.rerun()
 
 if critical:
     st.markdown(f'<div class="alert"><strong>Immediate attention:</strong> {critical} critical request(s) require triage. Review the highest-priority locations below.</div>', unsafe_allow_html=True)
