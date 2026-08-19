@@ -10,6 +10,7 @@ from utils.analytics import (
     get_filtered_requests,
     load_data,
 )
+from utils.live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
 
 st.set_page_config(
     page_title="CrisisBridge | Emergency Response Intelligence",
@@ -89,6 +90,51 @@ c1.metric("People in filtered requests", f"{people_impacted:,}")
 c2.metric("Open requests", f"{open_requests:,}")
 c3.metric("Critical requests", f"{critical:,}")
 c4.metric("Open shelters", f"{active_shelters:,}")
+
+st.markdown('<div class="section-title">Global intelligence layer</div>', unsafe_allow_html=True)
+intel_a, intel_b = st.columns([1.2, 1])
+with intel_a:
+    st.markdown("**Live hazard feed**")
+    try:
+        earthquakes = fetch_earthquakes(days=7, minimum_magnitude=4.5)
+        if earthquakes.empty:
+            st.info("No USGS earthquakes matched the current threshold.")
+        else:
+            eq_map = earthquakes.rename(columns={"latitude": "lat", "longitude": "lon"})
+            fig_eq = px.scatter_geo(eq_map, lat="lat", lon="lon", size="severity", color="severity", hover_name="place", hover_data={"hazard": True, "time": True, "depth_km": True, "lat": False, "lon": False}, color_continuous_scale="YlOrRd", projection="natural earth", title="USGS earthquakes: last 7 days", height=430)
+            fig_eq.update_layout(margin=dict(l=0, r=0, t=42, b=0))
+            st.plotly_chart(fig_eq, use_container_width=True)
+            st.caption("Source: USGS Earthquake Hazards Program. Data are live and may be revised.")
+    except Exception as exc:
+        st.warning(f"Live earthquake feed unavailable: {exc}")
+
+with intel_b:
+    st.markdown("**Locate any place in the world**")
+    place_query = st.text_input("Search country, city, district, block, or village", placeholder="e.g. Kathmandu, Dharavi, or a village name")
+    if place_query:
+        try:
+            location = geocode_location(place_query)
+            if location:
+                st.success(location["display_name"])
+                st.caption(f"Coordinates: {location['latitude']:.5f}, {location['longitude']:.5f} · {location['source']}")
+                weather = fetch_weather(location["latitude"], location["longitude"])
+                current = weather.get("current", {})
+                w1, w2 = st.columns(2)
+                w1.metric("Temperature", f"{current.get('temperature_2m', '—')} °C")
+                w2.metric("Wind", f"{current.get('wind_speed_10m', '—')} km/h")
+                st.caption("Weather context from Open-Meteo; use official local alerts for decisions.")
+            else:
+                st.warning("No location match found. Try a nearby city or include the country.")
+        except Exception as exc:
+            st.warning(f"Location lookup unavailable: {exc}")
+    st.markdown("**Humanitarian situation updates**")
+    try:
+        updates = fetch_reliefweb_updates(limit=6)
+        if not updates.empty:
+            st.dataframe(updates[["title", "country", "source", "created"]], use_container_width=True, hide_index=True)
+            st.caption("Source: ReliefWeb API, a UN OCHA service. Updates may contain partner-owned content.")
+    except Exception as exc:
+        st.warning(f"ReliefWeb feed unavailable: {exc}")
 
 st.markdown('<div class="section-title">Operational picture</div>', unsafe_allow_html=True)
 left, right = st.columns([1.45, 1])
