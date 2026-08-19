@@ -4,13 +4,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from utils.analytics import (
+from analytics import (
     build_resource_recommendations,
     calculate_priority,
     get_filtered_requests,
     load_data,
 )
-from utils.live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
+from live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
 
 st.set_page_config(
     page_title="CrisisBridge | Emergency Response Intelligence",
