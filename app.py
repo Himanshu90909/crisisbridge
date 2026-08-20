@@ -14,6 +14,8 @@ from analytics import (
 from live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
 from disaster_agent import classify_disaster_question, render_disaster_report, supported_prompt
 from gemini_engine import ask_gemini, gemini_available
+from evidence_store import load_records, retrieve, save_records, format_evidence_context
+from india_sources import fetch_sachet_alerts
 
 st.set_page_config(
     page_title="CrisisBridge | Emergency Response Intelligence",
@@ -134,10 +136,17 @@ with world_tabs[3]:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    st.caption("Try: **Where are the current earthquake signals?** · **What resources need attention?** · **What are the biggest emerging problems in Asia?**")
-    ask = st.chat_input("Ask about earthquakes, climate, resources, shortages, Asia, or emerging problems", key="world_chat_input")
+    st.caption("Try: **Assam me baadh aayi hai ya nahi?** · **Where are the current earthquake signals?** · **Which official alerts are active in India?**")
+    refresh_india = st.checkbox("Refresh official India evidence before answering", value=False, help="Fetches the public NDMA SACHET page and stores normalized evidence records. It does not invent impact or casualty figures.")
+    ask = st.chat_input("Ask about floods, earthquakes, cyclone, alerts, deaths, affected people, or resources", key="world_chat_input")
     if ask:
         st.session_state.world_chat.append({"role": "user", "content": ask})
+        if refresh_india and any(term in ask.lower() for term in ["india", "assam", "flood", "baadh", "cyclone", "earthquake", "alert", "disaster"]):
+            india_records, india_meta = fetch_sachet_alerts()
+            if india_records:
+                save_records(india_records)
+        matched_evidence = retrieve(ask, load_records(), limit=6)
+        evidence_context = format_evidence_context(matched_evidence) if matched_evidence else "No matching stored evidence records."
         q = ask.lower()
         intent = classify_disaster_question(ask)
         death_requested = any(word in q for word in ["die", "died", "death", "deaths", "fatalit", "casualt"])
@@ -195,6 +204,10 @@ with world_tabs[3]:
             )
         else:
             answer = "### Ask about any world problem\n\nInclude a **problem**, **place**, and **time period**. Examples: *How many people died in the latest earthquake?* *What health outbreaks are reported in Africa this month?* *What conflict casualties are reported in region X?* *Which areas face food or water stress?*\n\n" + supported_prompt() + "\n\nThe agent will return source status, affected population, deaths if explicitly reported, uncertainty, and a recommended verification step. It will say **Not reported** when no connected authority provides a figure."
+        if matched_evidence:
+            answer += "\n\n### Retrieved evidence records\n\n" + evidence_context + "\n\nThese records are source-linked observations. They do not override newer official bulletins, and missing casualty fields remain **Not reported**."
+        else:
+            answer += "\n\n### Evidence store status\n\nNo matching saved official evidence record was found for this wording. Enable **Refresh official India evidence** and ask with a location, event type, and time period."
         st.session_state.world_chat.append({"role": "assistant", "content": answer})
         st.rerun()
 
