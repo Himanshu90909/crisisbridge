@@ -129,14 +129,31 @@ with world_tabs[2]:
 
 with world_tabs[3]:
     st.markdown("**Ask the World**")
-    st.write("Type a question about a world issue. The current prototype responds from the live hazard layer, operational data, and clearly labeled roadmap knowledge.")
+    st.write("ChatGPT-like disaster intelligence for natural follow-up questions, persistent session context, source-backed answers, and multimodal evidence.")
     if "world_chat" not in st.session_state:
         st.session_state.world_chat = []
+    if "world_chat_title" not in st.session_state:
+        st.session_state.world_chat_title = "New conversation"
+    chat_actions = st.columns([1, 1, 1, 3])
+    with chat_actions[0]:
+        if st.button("＋ New chat", key="new_world_chat"):
+            st.session_state.world_chat = []
+            st.session_state.world_chat_title = "New conversation"
+            st.rerun()
+    with chat_actions[1]:
+        if st.button("Clear", key="clear_world_chat", disabled=not st.session_state.world_chat):
+            st.session_state.world_chat = []
+            st.rerun()
+    with chat_actions[2]:
+        transcript = "\\n\\n".join(f"{m['role'].title()}: {m['content']}" for m in st.session_state.world_chat)
+        st.download_button("Export", data=transcript or "No messages yet.", file_name="crisisbridge_conversation.txt", mime="text/plain", disabled=not transcript, key="export_world_chat")
+    with chat_actions[3]:
+        st.caption(f"**{st.session_state.world_chat_title}** · {len(st.session_state.world_chat)} messages · Follow-up context retained for this session")
     for message in st.session_state.world_chat:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    st.caption("Try: **Assam me baadh aayi hai ya nahi?** · **Where are the current earthquake signals?** · **Which official alerts are active in India?**")
+    st.caption("Try: **Assam me baadh aayi hai ya nahi?** · **What about deaths?** · **Where are the current earthquake signals?** · **Which official alerts are active in India?**")
     refresh_india = st.checkbox("Refresh official India evidence before answering", value=False, help="Fetches the public NDMA SACHET page and stores normalized evidence records. It does not invent impact or casualty figures.")
     with st.expander("Attach evidence to this question", expanded=False):
         st.caption("Everything below is optional. Use only consented, non-sensitive evidence. Camera and audio are held for the current session; documents are sent to the selected analysis path.")
@@ -154,7 +171,12 @@ with world_tabs[3]:
     ask = st.chat_input("Ask about floods, earthquakes, cyclone, alerts, deaths, affected people, or attached evidence", key="world_chat_input")
     if ask:
         evidence_label = document_evidence.name if document_evidence else (camera_mode if image_evidence else "No attachment")
+        prior_messages = st.session_state.world_chat[-8:]
+        prior_context = "\\n".join(f"{m['role'].upper()}: {m['content']}" for m in prior_messages)
+        routing_question = f"Previous conversation:\\n{prior_context}\\n\\nCurrent user message: {ask}" if prior_context else ask
         st.session_state.world_chat.append({"role": "user", "content": ask + f"\n\n_Attached evidence: {evidence_label}_"})
+        if st.session_state.world_chat_title == "New conversation":
+            st.session_state.world_chat_title = ask[:52] + ("…" if len(ask) > 52 else "")
         if refresh_india and any(term in ask.lower() for term in ["india", "assam", "flood", "baadh", "cyclone", "earthquake", "alert", "disaster"]):
             india_records, india_meta = fetch_sachet_alerts()
             if india_records:
@@ -171,12 +193,13 @@ with world_tabs[3]:
             multimodal_context = {
                 "source_status": "CrisisBridge live adapters plus retrieved evidence records",
                 "evidence_context": evidence_context,
+                "conversation_history": prior_context or "No previous messages; answer as the first turn.",
                 "camera_purpose": camera_mode if image_evidence else "not used",
                 "attached_document": document_evidence.name if document_evidence else "none",
                 "synthetic_data_warning": "Verify emergency decisions with official authorities.",
             }
             gemini_answer = ask_gemini(
-                ask,
+                routing_question,
                 multimodal_context,
                 image_bytes=image_evidence.getvalue() if image_evidence else None,
                 audio_bytes=audio_evidence.getvalue() if audio_evidence else None,
@@ -187,8 +210,8 @@ with world_tabs[3]:
             if gemini_answer:
                 st.session_state.world_chat.append({"role": "assistant", "content": gemini_answer + "\n\n_Evidence attached to this session: " + evidence_label + "_"})
                 st.rerun()
-        q = ask.lower()
-        intent = classify_disaster_question(ask)
+        q = routing_question.lower()
+        intent = classify_disaster_question(routing_question)
         death_requested = any(word in q for word in ["die", "died", "death", "deaths", "fatalit", "casualt"])
         live_eq_count = "not available"
         live_eq_peak = "not available"
