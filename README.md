@@ -24,7 +24,7 @@ The current live link is a temporary demonstration runtime. For a permanent rele
 
 ## Product experience
 
-The visitor can move through **Global Pulse**, **Problem Radar**, **World Graph**, **Ask the World**, and **AI Evidence Lab**. The command center includes KPI cards with deltas, priority maps, triage tables, resource recommendations, download controls, and an editable triage snapshot.
+The visitor can move through **Global Pulse**, **Problem Radar**, **World Graph**, and **Ask the World**. Ask the World is the unified evidence workspace: users can enter a Gemini key, capture front or rear camera evidence, record an audio situation report, attach a PDF/TXT/CSV/JSON/DOCX bulletin, and ask a location-specific disaster question in one conversation. The command center includes KPI cards with deltas, priority maps, triage tables, resource recommendations, download controls, and an editable triage snapshot.
 
 The World Agent accepts questions such as:
 
@@ -43,7 +43,7 @@ The answer engine separates live observations, forecasts, reported impacts, unkn
 | Category | Evidence in this repository |
 |---|---|
 | Technical implementation | Modular Python files, Pandas DataFrames, `st.session_state`, `st.form`, safe fallbacks, compile validation |
-| AI and prompts | `gemini_engine.py`, tailored system prompt, dynamic context, optional camera and audio evidence |
+| AI and prompts | `gemini_engine.py`, tailored system prompt, dynamic context, optional camera, audio, and document evidence |
 | UI and visualization | Tabs, columns, `st.metric` deltas, expanders, Plotly charts, maps, Sankey graph, `st.data_editor`, CSV downloads |
 | Deployment | Streamlit entrypoint and cloud-safe `requirements.txt` with no system packages |
 | Open-source branding | Terminal-style README, setup commands, project mission, live link, limitations |
@@ -56,12 +56,12 @@ See [`CAPSTONE_RUBRIC.md`](CAPSTONE_RUBRIC.md) for the full evaluation mapping a
 ```text
 Streamlit UI
    ├── Global Pulse / Radar / Graph
-   ├── Ask the World chat + session history
-   └── AI Evidence Lab form + camera + audio
+   └── Ask the World chat + session history + camera + audio + documents
           │
+                 │
           ├── Live source adapters: USGS, Open-Meteo, Nominatim
           ├── Disaster intent router + structured report engine
-          ├── Optional Gemini text / vision / audio analysis
+          ├── Optional Gemini text / vision / audio / document analysis
           └── Evidence, freshness, confidence, and casualty safeguards
 ```
 
