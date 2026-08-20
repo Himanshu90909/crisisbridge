@@ -1,15 +1,12 @@
 """Optional Gemini integration for CrisisBridge.
 
-The app remains runnable without a key. When GEMINI_API_KEY is configured in
-Streamlit secrets or the environment, this module sends a tailored prompt and
-optional camera/audio evidence to Gemini. Unknown facts are never fabricated.
+Uses the current ``google-genai`` SDK. The app remains runnable without a key
+or package and falls back to source-bounded deterministic responses.
 """
-
 from __future__ import annotations
 
 import os
 from typing import Any
-
 
 SYSTEM_PROMPT = """You are CrisisBridge Sentinel, a careful emergency-intelligence analyst.
 Answer only from the supplied context and attached evidence. Separate observed
@@ -27,8 +24,24 @@ def _api_key(override: str | None = None) -> str | None:
     return override or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 
+def gemini_package_available() -> bool:
+    try:
+        from google import genai  # noqa: F401
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
 def gemini_available(override: str | None = None) -> bool:
-    return bool(_api_key(override))
+    return bool(_api_key(override)) and gemini_package_available()
+
+
+def gemini_status(override: str | None = None) -> str:
+    if not gemini_package_available():
+        return "package missing; redeploy after installing google-genai from requirements.txt"
+    if not _api_key(override):
+        return "key not configured; deterministic fallback active"
+    return "configured"
 
 
 def ask_gemini(
@@ -39,16 +52,18 @@ def ask_gemini(
     audio_bytes: bytes | None = None,
     api_key: str | None = None,
 ) -> str | None:
-    """Call Gemini when configured; otherwise return None for safe fallback."""
+    """Call Gemini when configured; return None for a safe local fallback."""
     key = _api_key(api_key)
-    if not key:
+    if not key or not gemini_package_available():
         return None
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
 
-        genai.configure(api_key=key)
-        model = genai.GenerativeModel("gemini-1.5-flash", system_instruction=SYSTEM_PROMPT)
-        prompt = f"""User question: {question}
+        client = genai.Client(api_key=key)
+        prompt = f"""{SYSTEM_PROMPT}
+
+User question: {question}
 
 Dynamic CrisisBridge context:
 {context}
@@ -59,10 +74,11 @@ when the question cannot be answered reliably.
 """
         parts: list[Any] = [prompt]
         if image_bytes:
-            parts.append({"mime_type": "image/jpeg", "data": image_bytes})
+            parts.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
         if audio_bytes:
-            parts.append({"mime_type": "audio/wav", "data": audio_bytes})
-        response = model.generate_content(parts)
+            parts.append(types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"))
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=parts)
         return getattr(response, "text", None) or "Gemini returned no text response."
-    except Exception as exc:  # graceful fallback keeps the public demo healthy
-        return f"Gemini is temporarily unavailable: {exc.__class__.__name__}. Use the source-backed CrisisBridge response below."
+    except Exception:
+        # Do not expose provider internals or raw exception text to visitors.
+        return None

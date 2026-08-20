@@ -13,7 +13,7 @@ from analytics import (
 )
 from live_sources import fetch_earthquakes, fetch_reliefweb_updates, fetch_weather, geocode_location
 from disaster_agent import classify_disaster_question, render_disaster_report, supported_prompt
-from gemini_engine import ask_gemini, gemini_available
+from gemini_engine import ask_gemini, gemini_available, gemini_status
 from evidence_store import load_records, retrieve, save_records, format_evidence_context
 from india_sources import fetch_sachet_alerts
 
@@ -263,7 +263,7 @@ with world_tabs[4]:
         with st.expander(f"Question: {item['question']}", expanded=True):
             st.markdown(item["answer"])
     active_key = st.session_state.gemini_session_key or ui_key.strip()
-    st.info("Gemini status: " + ("configured" if gemini_available(active_key) else "optional key not configured; deterministic fallback active"))
+    st.info("Gemini status: " + gemini_status(active_key))
     st.markdown("**Editable triage snapshot**")
     st.data_editor(filtered.head(12), use_container_width=True, hide_index=True, disabled=["request_id", "priority_score"], key="triage_editor")
 
