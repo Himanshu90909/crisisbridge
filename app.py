@@ -88,7 +88,7 @@ st.markdown(
 )
 
 # ---------- World Intelligence OS prototype ----------
-world_tabs = st.tabs(["Global Pulse", "Problem Radar", "World Graph", "Ask the World", "AI Evidence Lab"])
+world_tabs = st.tabs(["Global Pulse", "Problem Radar", "World Graph", "Ask the World"])
 with world_tabs[0]:
     st.markdown("**What is happening in the world right now?**")
     pulse_items = [
@@ -138,15 +138,55 @@ with world_tabs[3]:
 
     st.caption("Try: **Assam me baadh aayi hai ya nahi?** · **Where are the current earthquake signals?** · **Which official alerts are active in India?**")
     refresh_india = st.checkbox("Refresh official India evidence before answering", value=False, help="Fetches the public NDMA SACHET page and stores normalized evidence records. It does not invent impact or casualty figures.")
-    ask = st.chat_input("Ask about floods, earthquakes, cyclone, alerts, deaths, affected people, or resources", key="world_chat_input")
+    with st.expander("Attach evidence to this question", expanded=False):
+        st.caption("Everything below is optional. Use only consented, non-sensitive evidence. Camera and audio are held for the current session; documents are sent to the selected analysis path.")
+        if "gemini_session_key" not in st.session_state:
+            st.session_state.gemini_session_key = ""
+        ui_key = st.text_input("Gemini API key (session only)", type="password", value=st.session_state.gemini_session_key, help="For permanent deployment, use GEMINI_API_KEY in Streamlit Secrets instead.")
+        remember_key = st.checkbox("Use this Gemini key for the current session", value=False)
+        if remember_key:
+            st.session_state.gemini_session_key = ui_key.strip()
+        camera_mode = st.selectbox("Camera purpose", ["Front camera — reporter/selfie context", "Rear camera — field scene or damage context"], help="The device browser may provide the actual front/rear lens selector.")
+        image_evidence = st.camera_input("Capture camera evidence (optional)", help="Choose the camera purpose first, then select the matching lens in your device camera dialog.")
+        audio_widget = getattr(st, "audio_input", None)
+        audio_evidence = audio_widget("Voice report (optional)") if audio_widget else None
+        document_evidence = st.file_uploader("Attach a document (optional)", type=["pdf", "txt", "md", "csv", "json", "docx"], help="Attach an official bulletin, situation report, PDF, CSV, or text note. Verify permissions before uploading.")
+    ask = st.chat_input("Ask about floods, earthquakes, cyclone, alerts, deaths, affected people, or attached evidence", key="world_chat_input")
     if ask:
-        st.session_state.world_chat.append({"role": "user", "content": ask})
+        evidence_label = document_evidence.name if document_evidence else (camera_mode if image_evidence else "No attachment")
+        st.session_state.world_chat.append({"role": "user", "content": ask + f"\n\n_Attached evidence: {evidence_label}_"})
         if refresh_india and any(term in ask.lower() for term in ["india", "assam", "flood", "baadh", "cyclone", "earthquake", "alert", "disaster"]):
             india_records, india_meta = fetch_sachet_alerts()
             if india_records:
                 save_records(india_records)
         matched_evidence = retrieve(ask, load_records(), limit=6)
         evidence_context = format_evidence_context(matched_evidence) if matched_evidence else "No matching stored evidence records."
+        document_bytes = document_evidence.getvalue() if document_evidence else None
+        document_mime = document_evidence.type if document_evidence else None
+        if document_evidence:
+            document_text = document_bytes.decode("utf-8", errors="ignore")[:12000] if document_evidence.type in ["text/plain", "text/markdown", "text/csv", "application/json"] else "Binary document attached; inspect it with Gemini when configured."
+            evidence_context += f"\n\nAttached document: {document_evidence.name}\n{document_text}"
+        active_key = st.session_state.get("gemini_session_key", "")
+        if active_key and (image_evidence or audio_evidence or document_evidence):
+            multimodal_context = {
+                "source_status": "CrisisBridge live adapters plus retrieved evidence records",
+                "evidence_context": evidence_context,
+                "camera_purpose": camera_mode if image_evidence else "not used",
+                "attached_document": document_evidence.name if document_evidence else "none",
+                "synthetic_data_warning": "Verify emergency decisions with official authorities.",
+            }
+            gemini_answer = ask_gemini(
+                ask,
+                multimodal_context,
+                image_bytes=image_evidence.getvalue() if image_evidence else None,
+                audio_bytes=audio_evidence.getvalue() if audio_evidence else None,
+                document_bytes=document_bytes,
+                document_mime=document_mime,
+                api_key=active_key,
+            )
+            if gemini_answer:
+                st.session_state.world_chat.append({"role": "assistant", "content": gemini_answer + "\n\n_Evidence attached to this session: " + evidence_label + "_"})
+                st.rerun()
         q = ask.lower()
         intent = classify_disaster_question(ask)
         death_requested = any(word in q for word in ["die", "died", "death", "deaths", "fatalit", "casualt"])
@@ -210,62 +250,6 @@ with world_tabs[3]:
             answer += "\n\n### Evidence store status\n\nNo matching saved official evidence record was found for this wording. Enable **Refresh official India evidence** and ask with a location, event type, and time period."
         st.session_state.world_chat.append({"role": "assistant", "content": answer})
         st.rerun()
-
-with world_tabs[4]:
-    st.markdown("**AI Evidence Lab — Gemini-powered multimodal review**")
-    st.caption("Use a session-only Gemini key or hosting secrets. Choose the camera purpose before capturing evidence. Do not record private, identifying, or unsafe material without consent.")
-    if "ai_history" not in st.session_state:
-        st.session_state.ai_history = []
-    if "gemini_session_key" not in st.session_state:
-        st.session_state.gemini_session_key = ""
-    with st.expander("Gemini API configuration", expanded=not gemini_available()):
-        ui_key = st.text_input("Gemini API key (session only)", type="password", value=st.session_state.gemini_session_key, help="The key is kept only in this Streamlit session. For deployment, prefer Streamlit Secrets instead of typing it here.")
-        remember_key = st.checkbox("Use this key for the current session", value=False)
-        if remember_key:
-            st.session_state.gemini_session_key = ui_key.strip()
-        st.caption("For Streamlit Cloud, configure GEMINI_API_KEY in App settings → Secrets. The deterministic fallback works without a key.")
-    with st.form("ai_evidence_form", clear_on_submit=False):
-        ai_question = st.text_area("Question", placeholder="Example: Is this area showing flood damage, and what should responders verify?", height=90)
-        camera_mode = st.selectbox("Camera purpose", ["Front camera — reporter/selfie context", "Rear camera — field scene or damage context"], help="The browser may show its own camera selector. This label tells Gemini how to interpret the captured evidence.")
-        image_evidence = st.camera_input("Capture camera evidence (optional)", help="Use the front camera for reporter context or the rear camera for a field scene. Obtain consent before recording people.")
-        audio_widget = getattr(st, "audio_input", None)
-        audio_evidence = audio_widget("Voice report (optional)") if audio_widget else None
-        submitted = st.form_submit_button("Analyze evidence", type="primary")
-    if submitted and ai_question.strip():
-        context = {
-            "source_status": "USGS/Open-Meteo live adapters plus CrisisBridge prototype request data",
-            "filtered_request_count": open_requests,
-            "critical_request_count": critical,
-            "people_impacted": people_impacted,
-            "data_warning": "Synthetic operations data; verify all real-world decisions with authorities.",
-            "camera_purpose": camera_mode,
-        }
-        result = ask_gemini(
-            ai_question.strip(),
-            context,
-            image_bytes=image_evidence.getvalue() if image_evidence else None,
-            audio_bytes=audio_evidence.getvalue() if audio_evidence else None,
-            api_key=st.session_state.gemini_session_key or ui_key.strip() or None,
-        )
-        if result is None:
-            result = render_disaster_report(
-                ai_question.strip(),
-                classify_disaster_question(ai_question),
-                status="Gemini key not configured; returned safe source-bounded fallback",
-                affected_people=people_impacted,
-                resources=["water", "food", "medicine", "shelter", "rescue"],
-                evidence_status="Local deterministic fallback; no external AI call",
-                confidence="Medium for dashboard counts; low for unconnected world facts",
-                limitations="Configure GEMINI_API_KEY in Streamlit secrets to enable Gemini reasoning and multimodal review.",
-            )
-        st.session_state.ai_history.append({"question": ai_question.strip(), "answer": result})
-    for item in reversed(st.session_state.ai_history):
-        with st.expander(f"Question: {item['question']}", expanded=True):
-            st.markdown(item["answer"])
-    active_key = st.session_state.gemini_session_key or ui_key.strip()
-    st.info("Gemini status: " + gemini_status(active_key))
-    st.markdown("**Editable triage snapshot**")
-    st.data_editor(filtered.head(12), use_container_width=True, hide_index=True, disabled=["request_id", "priority_score"], key="triage_editor")
 
 if critical:
     st.markdown(f'<div class="alert"><strong>Immediate attention:</strong> {critical} critical request(s) require triage. Review the highest-priority locations below.</div>', unsafe_allow_html=True)

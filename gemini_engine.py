@@ -50,6 +50,8 @@ def ask_gemini(
     *,
     image_bytes: bytes | None = None,
     audio_bytes: bytes | None = None,
+    document_bytes: bytes | None = None,
+    document_mime: str | None = None,
     api_key: str | None = None,
 ) -> str | None:
     """Call Gemini when configured; return None for a safe local fallback."""
@@ -77,6 +79,8 @@ when the question cannot be answered reliably.
             parts.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
         if audio_bytes:
             parts.append(types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"))
+        if document_bytes:
+            parts.append(types.Part.from_bytes(data=document_bytes, mime_type=document_mime or "application/octet-stream"))
         response = client.models.generate_content(model="gemini-2.0-flash", contents=parts)
         return getattr(response, "text", None) or "Gemini returned no text response."
     except Exception:
